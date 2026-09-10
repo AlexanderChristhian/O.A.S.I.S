@@ -1,0 +1,255 @@
+{
+  "version": 1,
+  "editor": "wokwi",
+  "parts": [
+    { "type": "wokwi-esp32-devkit-v1", "id": "esp1", "top": 275, "left": 395.6, "attrs": {} },
+    {
+      "type": "wokwi-text",
+      "id": "title1",
+      "top": 60,
+      "left": 300.6,
+      "attrs": { "text": "O.A.S.I.S. Embedded Control Simulation" }
+    },
+    {
+      "type": "wokwi-lcd2004",
+      "id": "lcd1",
+      "top": 89,
+      "left": 697.2,
+      "attrs": { "pins": "i2c", "i2cAddress": "0x27", "background": "blue", "color": "white" }
+    },
+    {
+      "type": "wokwi-text",
+      "id": "sensorLabel1",
+      "top": 57.6,
+      "left": -105.6,
+      "attrs": { "text": "Simulated water-quality sensors" }
+    },
+    {
+      "type": "wokwi-potentiometer",
+      "id": "phPot1",
+      "top": 123.5,
+      "left": 38.2,
+      "attrs": { "value": "512" }
+    },
+    {
+      "type": "wokwi-text",
+      "id": "phLabel1",
+      "top": 96,
+      "left": 28.8,
+      "attrs": { "text": "pH -> GPIO34" }
+    },
+    {
+      "type": "wokwi-potentiometer",
+      "id": "turbPot1",
+      "top": 123.5,
+      "left": -86.6,
+      "attrs": { "value": "200" }
+    },
+    {
+      "type": "wokwi-text",
+      "id": "turbLabel1",
+      "top": 96,
+      "left": -124.8,
+      "attrs": { "text": "Turbidity -> GPIO35" }
+    },
+    {
+      "type": "wokwi-text",
+      "id": "modeLabel1",
+      "top": 614.4,
+      "left": -172.8,
+      "rotate": 270,
+      "attrs": { "text": "3-way selector emulation (latched in firmware)" }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "modeMck1",
+      "top": 703.2,
+      "left": 38.8,
+      "attrs": { "color": "blue", "label": "MCK", "key": "1", "bounce": "0" }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "modeAuto1",
+      "top": 515,
+      "left": 38.4,
+      "attrs": { "color": "yellow", "label": "AUTO", "key": "2", "bounce": "0" }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "modeDrink1",
+      "top": 616.8,
+      "left": 38.8,
+      "attrs": { "color": "green", "label": "DRINK", "key": "3", "bounce": "0" }
+    },
+    {
+      "type": "wokwi-text",
+      "id": "relayLabel1",
+      "top": 280,
+      "left": 665.6,
+      "attrs": { "text": "4-channel relay board emulation" }
+    },
+    {
+      "type": "wokwi-relay-module",
+      "id": "relayHose1",
+      "top": 499.4,
+      "left": 652.8,
+      "attrs": { "transistor": "pnp" }
+    },
+    {
+      "type": "wokwi-text",
+      "id": "relayHoseLabel1",
+      "top": 547.2,
+      "left": 835.2,
+      "attrs": { "text": "HOSE PUMP" }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "rHose1",
+      "top": 519.4,
+      "left": 863.85,
+      "attrs": { "value": "220" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "ledHose1",
+      "top": 512.6,
+      "left": 928,
+      "rotate": 270,
+      "attrs": { "color": "yellow", "label": "Hose" }
+    },
+    {
+      "type": "wokwi-relay-module",
+      "id": "relayMck1",
+      "top": 413,
+      "left": 652.8,
+      "attrs": { "transistor": "pnp" }
+    },
+    {
+      "type": "wokwi-text",
+      "id": "relayMckLabel1",
+      "top": 460.8,
+      "left": 835.2,
+      "attrs": { "text": "MCK VALVE" }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "rMck1",
+      "top": 423.4,
+      "left": 863.85,
+      "attrs": { "value": "220" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "ledMck1",
+      "top": 416.6,
+      "left": 918.4,
+      "rotate": 270,
+      "attrs": { "color": "blue", "label": "MCK" }
+    },
+    {
+      "type": "wokwi-relay-module",
+      "id": "relayRo1",
+      "top": 326.6,
+      "left": 652.8,
+      "attrs": { "transistor": "pnp" }
+    },
+    {
+      "type": "wokwi-text",
+      "id": "relayRoLabel1",
+      "top": 374.4,
+      "left": 844.8,
+      "attrs": { "text": "RO PUMP" }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "rRo1",
+      "top": 320.75,
+      "left": 835.2,
+      "attrs": { "value": "220" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "ledRo1",
+      "top": 320.6,
+      "left": 918.4,
+      "rotate": 270,
+      "attrs": { "color": "red", "label": "RO" }
+    },
+    {
+      "type": "wokwi-relay-module",
+      "id": "relayDrink1",
+      "top": 595.4,
+      "left": 652.8,
+      "attrs": { "transistor": "pnp" }
+    },
+    {
+      "type": "wokwi-text",
+      "id": "relayDrinkLabel1",
+      "top": 643.2,
+      "left": 835.2,
+      "attrs": { "text": "DRINK VALVE" }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "rDrink1",
+      "top": 605.8,
+      "left": 863.85,
+      "attrs": { "value": "220" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "ledDrink1",
+      "top": 596.4,
+      "left": 935.4,
+      "rotate": 270,
+      "attrs": { "color": "green", "label": "Drink" }
+    }
+  ],
+  "connections": [
+    [ "esp1:3V3", "phPot1:VCC", "red", [ "h79.1", "v-174.3", "h-488.8" ] ],
+    [ "esp1:D34", "phPot1:SIG", "green", [ "h-323.8", "v-136.1" ] ],
+    [ "esp1:D35", "turbPot1:SIG", "green", [ "h-448.6", "v-145.9" ] ],
+    [ "esp1:VIN", "lcd1:VCC", "red", [ "h-55", "v-308.7", "h265", "h90.6" ] ],
+    [ "esp1:GND.1", "lcd1:GND", "black", [ "h40.7", "v-308.8", "h163.6" ] ],
+    [ "esp1:D21", "lcd1:SDA", "green", [ "h45", "v-203.5", "h159.3" ] ],
+    [ "esp1:D22", "lcd1:SCL", "blue", [ "h60", "v-145.8", "h144.3" ] ],
+    [ "esp1:D14", "modeAuto1:1.r", "orange", [ "h-256.6", "v133" ] ],
+    [ "esp1:D27", "modeDrink1:1.r", "orange", [ "h-266.2", "v244" ] ],
+    [ "esp1:D13", "modeMck1:1.r", "orange", [ "h-247", "v301.7" ] ],
+    [ "esp1:GND.2", "modeMck1:2.r", "black", [ "h-93.4", "v142.4", "h-144", "v168.8" ] ],
+    [ "modeMck1:2.r", "modeDrink1:2.r", "black", [ "h20", "*", "h20" ] ],
+    [ "modeDrink1:2.r", "modeAuto1:2.r", "black", [ "h20", "*", "h20" ] ],
+    [ "esp1:D23", "relayRo1:IN", "purple", [ "h117.5", "v66" ] ],
+    [ "esp1:D19", "relayMck1:IN", "purple", [ "h107.9", "v104.2" ] ],
+    [ "esp1:D18", "relayHose1:IN", "purple", [ "h98.3", "v181.1" ] ],
+    [ "esp1:D5", "relayDrink1:IN", "purple", [ "h88.7", "v267.5" ] ],
+    [ "esp1:VIN", "relayDrink1:VCC", "red", [ "h-55", "v180.9", "h290", "v-0.4" ] ],
+    [ "relayDrink1:VCC", "relayHose1:VCC", "red", [ "h-19.2", "v-96" ] ],
+    [ "relayHose1:VCC", "relayMck1:VCC", "red", [ "h-19.2", "v-86.4" ] ],
+    [ "relayMck1:VCC", "relayRo1:VCC", "red", [ "h-19.2", "v-86.4" ] ],
+    [ "esp1:GND.1", "relayDrink1:GND", "black", [ "h40.7", "v50", "h76.8", "v150.4" ] ],
+    [ "relayDrink1:GND", "relayHose1:GND", "black", [ "h-28.8", "v-96" ] ],
+    [ "relayHose1:GND", "relayMck1:GND", "black", [ "h-28.8", "v-86.4" ] ],
+    [ "relayMck1:GND", "relayRo1:GND", "black", [ "h-28.8", "v-86.4" ] ],
+    [ "esp1:3V3", "relayDrink1:COM", "red", [ "v-1.5", "h79.1", "v249.6", "h220.8", "v-56.2" ] ],
+    [ "relayDrink1:COM", "relayHose1:COM", "red", [ "h30", "v-96" ] ],
+    [ "relayHose1:COM", "relayMck1:COM", "red", [ "h30", "v-86.4" ] ],
+    [ "relayMck1:COM", "relayRo1:COM", "red", [ "h30", "v-86.4" ] ],
+    [ "relayRo1:NO", "rRo1:1", "red", [ "h49.2", "v-40.2" ] ],
+    [ "rRo1:2", "ledRo1:A", "red", [ "h85.2", "v19.2" ] ],
+    [ "relayMck1:NO", "rMck1:1", "blue", [ "h58.8", "v-23.95" ] ],
+    [ "rMck1:2", "ledMck1:A", "blue", [] ],
+    [ "relayHose1:NO", "rHose1:1", "yellow", [ "v-1.8", "h58.8", "v-12.55" ] ],
+    [ "rHose1:2", "ledHose1:A", "yellow", [] ],
+    [ "relayDrink1:NO", "rDrink1:1", "green", [ "h58.8", "v-23.95" ] ],
+    [ "rDrink1:2", "ledDrink1:A", "green", [] ],
+    [ "esp1:GND.1", "ledDrink1:C", "black", [ "h40.7", "v286.4", "h441.6", "v-79" ] ],
+    [ "ledDrink1:C", "ledHose1:C", "black", [ "h11.8", "v-83.8" ] ],
+    [ "ledHose1:C", "ledMck1:C", "black", [ "h19.2", "v-96" ] ],
+    [ "ledMck1:C", "ledRo1:C", "black", [ "h28.8", "v-96" ] ],
+    [ "phPot1:VCC", "turbPot1:VCC", "red", [ "v67.2", "h-124.8" ] ],
+    [ "esp1:GND.2", "phPot1:GND", "black", [ "h0" ] ],
+    [ "esp1:GND.2", "turbPot1:GND", "black", [ "h0" ] ]
+  ],
+  "dependencies": {}
+}
