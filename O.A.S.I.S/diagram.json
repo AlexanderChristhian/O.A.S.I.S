@@ -58,7 +58,7 @@
       "top": 614.4,
       "left": -172.8,
       "rotate": 270,
-      "attrs": { "text": "3-way selector emulation (latched in firmware)" }
+      "attrs": { "text": "MCK / OFF / DRINK - click once; mode stays selected" }
     },
     {
       "type": "wokwi-pushbutton",
@@ -69,10 +69,10 @@
     },
     {
       "type": "wokwi-pushbutton",
-      "id": "modeAuto1",
+      "id": "modeOff1",
       "top": 515,
       "left": 38.4,
-      "attrs": { "color": "yellow", "label": "AUTO", "key": "2", "bounce": "0" }
+      "attrs": { "color": "yellow", "label": "OFF", "key": "2", "bounce": "0" }
     },
     {
       "type": "wokwi-pushbutton",
@@ -213,12 +213,12 @@
     [ "esp1:GND.1", "lcd1:GND", "black", [ "h40.7", "v-308.8", "h163.6" ] ],
     [ "esp1:D21", "lcd1:SDA", "green", [ "h45", "v-203.5", "h159.3" ] ],
     [ "esp1:D22", "lcd1:SCL", "blue", [ "h60", "v-145.8", "h144.3" ] ],
-    [ "esp1:D14", "modeAuto1:1.r", "orange", [ "h-256.6", "v133" ] ],
+    [ "esp1:D14", "modeOff1:1.r", "orange", [ "h-256.6", "v133" ] ],
     [ "esp1:D27", "modeDrink1:1.r", "orange", [ "h-266.2", "v244" ] ],
     [ "esp1:D13", "modeMck1:1.r", "orange", [ "h-247", "v301.7" ] ],
     [ "esp1:GND.2", "modeMck1:2.r", "black", [ "h-93.4", "v142.4", "h-144", "v168.8" ] ],
     [ "modeMck1:2.r", "modeDrink1:2.r", "black", [ "h20", "*", "h20" ] ],
-    [ "modeDrink1:2.r", "modeAuto1:2.r", "black", [ "h20", "*", "h20" ] ],
+    [ "modeDrink1:2.r", "modeOff1:2.r", "black", [ "h20", "*", "h20" ] ],
     [ "esp1:D23", "relayRo1:IN", "purple", [ "h117.5", "v66" ] ],
     [ "esp1:D19", "relayMck1:IN", "purple", [ "h107.9", "v104.2" ] ],
     [ "esp1:D18", "relayHose1:IN", "purple", [ "h98.3", "v181.1" ] ],

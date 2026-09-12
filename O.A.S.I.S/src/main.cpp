@@ -4,7 +4,7 @@
   Simulates:
   - pH sensor          -> potentiometer on GPIO34
   - Turbidity sensor   -> potentiometer on GPIO35
-  - 3 operating modes  -> MCK / AUTO / DRINK buttons
+  - 3 operating modes  -> MCK / OFF / DRINK (firmware-latched buttons)
   - 20x4 I2C LCD       -> SDA 21, SCL 22
   - 4 relay outputs:
       GPIO18 -> Hose Pump
@@ -28,7 +28,7 @@ constexpr uint8_t PIN_PH        = 34;
 constexpr uint8_t PIN_TURBIDITY = 35;
 
 constexpr uint8_t PIN_MODE_MCK   = 13;
-constexpr uint8_t PIN_MODE_AUTO  = 14;
+constexpr uint8_t PIN_MODE_OFF   = 14;
 constexpr uint8_t PIN_MODE_DRINK = 27;
 
 constexpr uint8_t PIN_RELAY_HOSE  = 18;
@@ -40,9 +40,9 @@ constexpr uint8_t I2C_SDA = 21;
 constexpr uint8_t I2C_SCL = 22;
 LiquidCrystal_I2C lcd(0x27, 20, 4);
 
-// diagram.json uses "transistor": "pnp", which is active-high in Wokwi.
-constexpr uint8_t RELAY_ON  = HIGH;
-constexpr uint8_t RELAY_OFF = LOW;
+// diagram.json uses PNP active-low relay modules (verified in simulation).
+constexpr uint8_t RELAY_ON  = LOW;
+constexpr uint8_t RELAY_OFF = HIGH;
 
 // =========================================================
 // O.A.S.I.S. WATER QUALITY LIMITS
@@ -50,7 +50,9 @@ constexpr uint8_t RELAY_OFF = LOW;
 constexpr float PH_MIN = 6.5f;
 constexpr float PH_MAX = 8.5f;
 
-constexpr float DRINK_MAX_NTU = 1.0f;
+// Team simulation criterion: <= 5 NTU; < 0.3 NTU is the preferred target.
+// This classification alone does not establish actual drinking-water safety.
+constexpr float DRINK_MAX_NTU = 5.0f;
 constexpr float MCK_MAX_NTU = 10.0f;
 
 // =========================================================
@@ -68,7 +70,7 @@ constexpr float SIM_NTU_MAX = 50.0f;
 // =========================================================
 enum class UserMode {
   MCK,
-  AUTO,
+  OFF,
   DRINK
 };
 
@@ -95,18 +97,22 @@ struct Outputs {
 // =========================================================
 // GLOBAL STATE
 // =========================================================
-UserMode currentMode = UserMode::AUTO;
+UserMode currentMode = UserMode::OFF;
 SensorData sensorData{};
 WaterClass waterClass = WaterClass::UNSAFE;
 Outputs outputs{};
 
 unsigned long lastSensorUpdate = 0;
 unsigned long lastSerialUpdate = 0;
-unsigned long lastButtonAction = 0;
+unsigned long buttonChangedAt = 0;
+uint8_t candidateButtons = 0;
+uint8_t stableButtons = 0;
 
 constexpr unsigned long SENSOR_INTERVAL_MS = 250;
 constexpr unsigned long SERIAL_INTERVAL_MS = 1000;
-constexpr unsigned long BUTTON_DEBOUNCE_MS = 180;
+// Diagram buttons have bounce disabled; accept even short simulated clicks.
+// Enable a suitable debounce interval when using physical contacts.
+constexpr unsigned long BUTTON_DEBOUNCE_MS = 0;
 
 // =========================================================
 // HELPERS
@@ -119,7 +125,7 @@ float mapFloat(int value, int inMin, int inMax, float outMin, float outMax) {
 const char* modeToString(UserMode mode) {
   switch (mode) {
     case UserMode::MCK:   return "MCK";
-    case UserMode::AUTO:  return "AUTO";
+    case UserMode::OFF:   return "OFF";
     case UserMode::DRINK: return "DRINK";
   }
   return "?";
@@ -167,7 +173,7 @@ WaterClass classifyWater(const SensorData& d) {
 
   const bool drinkable =
       phOK &&
-      d.turbidity < DRINK_MAX_NTU;
+      d.turbidity <= DRINK_MAX_NTU;
 
   const bool mckAcceptable =
       phOK &&
@@ -187,26 +193,31 @@ WaterClass classifyWater(const SensorData& d) {
 // =========================================================
 // MODE BUTTONS
 // =========================================================
-void checkModeButtons() {
-  if (millis() - lastButtonAction < BUTTON_DEBOUNCE_MS) {
-    return;
+bool checkModeButtons() {
+  const uint8_t raw = (digitalRead(PIN_MODE_MCK) == LOW ? 1 : 0)
+                    | (digitalRead(PIN_MODE_OFF) == LOW ? 2 : 0)
+                    | (digitalRead(PIN_MODE_DRINK) == LOW ? 4 : 0);
+  const UserMode previous = currentMode;
+  // OFF and conflicting direction requests always take priority.
+  if ((raw & 2) || ((raw & 5) == 5)) currentMode = UserMode::OFF;
+  if (raw != candidateButtons) {
+    candidateButtons = raw;
+    buttonChangedAt = millis();
   }
-
-  if (digitalRead(PIN_MODE_MCK) == LOW) {
-    currentMode = UserMode::MCK;
-    lastButtonAction = millis();
-    Serial.println("[MODE] MCK selected");
+  if (millis() - buttonChangedAt >= BUTTON_DEBOUNCE_MS && raw != stableButtons) {
+    const uint8_t pressed = raw & ~stableButtons;
+    stableButtons = raw;
+    if (!(raw & 2) && (raw & 5) != 5) {
+      if (pressed & 1) currentMode = UserMode::MCK;
+      else if (pressed & 4) currentMode = UserMode::DRINK;
+    }
   }
-  else if (digitalRead(PIN_MODE_AUTO) == LOW) {
-    currentMode = UserMode::AUTO;
-    lastButtonAction = millis();
-    Serial.println("[MODE] AUTO selected");
+  if (currentMode != previous) {
+    Serial.print("[MODE] ");
+    Serial.println(modeToString(currentMode));
+    return true;
   }
-  else if (digitalRead(PIN_MODE_DRINK) == LOW) {
-    currentMode = UserMode::DRINK;
-    lastButtonAction = millis();
-    Serial.println("[MODE] DRINK selected");
-  }
+  return false;
 }
 
 // =========================================================
@@ -233,17 +244,8 @@ Outputs calculateOutputs(UserMode mode, WaterClass quality) {
       }
       break;
 
-    case UserMode::AUTO:
-      if (quality == WaterClass::DRINKABLE) {
-        result.hosePump   = true;
-        result.roPump     = true;
-        result.drinkValve = true;
-      }
-      else if (quality == WaterClass::MCK_ONLY) {
-        result.hosePump = true;
-        result.mckValve = true;
-      }
-      // UNSAFE leaves everything OFF.
+    case UserMode::OFF:
+      // OFF disables every output regardless of water quality.
       break;
   }
 
@@ -336,7 +338,7 @@ void setup() {
   analogReadResolution(12);
 
   pinMode(PIN_MODE_MCK, INPUT_PULLUP);
-  pinMode(PIN_MODE_AUTO, INPUT_PULLUP);
+  pinMode(PIN_MODE_OFF, INPUT_PULLUP);
   pinMode(PIN_MODE_DRINK, INPUT_PULLUP);
 
   pinMode(PIN_RELAY_HOSE, OUTPUT);
@@ -353,14 +355,14 @@ void setup() {
   printLCDLine(0, "O.A.S.I.S.");
   printLCDLine(1, "ESP32 Controller");
   printLCDLine(2, "Initializing...");
-  printLCDLine(3, "Mode: AUTO");
+  printLCDLine(3, "Mode: OFF");
 
   delay(1200);
 
   Serial.println();
   Serial.println("O.A.S.I.S. ESP32 simulation started.");
   Serial.println("MCK   button -> GPIO13");
-  Serial.println("AUTO  button -> GPIO14");
+  Serial.println("OFF   button -> GPIO14");
   Serial.println("DRINK button -> GPIO27");
 }
 
@@ -368,9 +370,10 @@ void setup() {
 // MAIN LOOP
 // =========================================================
 void loop() {
-  checkModeButtons();
+  const bool modeChanged = checkModeButtons();
+  if (modeChanged) allOutputsOff();
 
-  if (millis() - lastSensorUpdate >= SENSOR_INTERVAL_MS) {
+  if (modeChanged || millis() - lastSensorUpdate >= SENSOR_INTERVAL_MS) {
     lastSensorUpdate = millis();
 
     readSensors();
