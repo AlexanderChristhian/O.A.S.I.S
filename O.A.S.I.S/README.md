@@ -37,6 +37,20 @@ Startup mode is OFF. Click a button once to select and retain a mode; releasing 
 
 These momentary buttons emulate mutually exclusive selector choices in firmware. They do not emulate the electrical contacts of a maintained three-position selector. The physical selector will need position-reading logic matched to its actual contact arrangement. Wokwi's standard slide switch has only two positions.
 
+## Local web dashboard
+
+The firmware runs a port-80 HTTP server and a wildcard DNS server alongside the control loop. It creates the protected `OASIS-Control` SoftAP at `192.168.4.1` for physical phones. The separate PlatformIO `wokwi` environment also enables a non-blocking connection to `Wokwi-GUEST` for simulator port forwarding; the physical `esp32dev` build does not join that open network.
+
+| Endpoint | Method | Purpose |
+| --- | --- | --- |
+| `/` | GET | Responsive embedded dashboard |
+| `/api/status` | GET | Current mode, classification, readings, relay outputs, IPs, and uptime as JSON |
+| `/api/mode` | POST | Requests `MCK`, `OFF`, or `DRINK` using a form field named `mode` |
+
+The browser polls status every 750 ms. A web mode request is applied to the same `currentMode` used by the physical controls, immediately clears previous outputs, re-reads the sensors, recalculates the interlock, updates the LCD, and returns the resulting state. It cannot command an individual relay or bypass quality classification. A subsequently pressed physical button can change the mode; a held OFF input has priority.
+
+All page assets are compiled into `src/dashboard.h`, so no internet connection, CDN, filesystem upload, or separate frontend build is required. The access point credentials are demonstration defaults and should be changed before field deployment.
+
 ## Current quality rules
 
 | Water class | Simulated criteria |
@@ -97,6 +111,7 @@ sequenceDiagram
     participant Buttons as Mode buttons
     participant ESP32
     participant Sensors as pH and turbidity pots
+    participant Web as Local web dashboard
     participant Relays as Pump and valve relays
     participant LCD
     participant Serial as Serial monitor
@@ -104,6 +119,13 @@ sequenceDiagram
     User->>Buttons: Select MCK, OFF, or DRINK
     Buttons-->>ESP32: Active-low button input
     ESP32->>ESP32: Latch selected mode
+
+    opt User selects a mode in the browser
+        User->>Web: Tap MCK, OFF, or DRINK
+        Web->>ESP32: POST /api/mode
+        ESP32->>ESP32: Clear outputs and apply the same sensor interlock
+        ESP32-->>Web: Return current state as JSON
+    end
 
     loop Every 250 ms or on mode change
         ESP32->>Sensors: Read GPIO34 and GPIO35 ADC values
@@ -120,6 +142,8 @@ sequenceDiagram
         end
 
         ESP32->>LCD: Show mode, pH, NTU, and water class
+        Web->>ESP32: GET /api/status every 750 ms
+        ESP32-->>Web: Readings, classification, and outputs
     end
 
     loop Every 1 second
@@ -139,4 +163,6 @@ The Wokwi relay modules use the `pnp` setting. Simulation verification showed ac
 
 ## Build and simulate
 
-Run `pio run` in this directory. Then start the Wokwi simulator from VS Code; `wokwi.toml` points to the generated ESP32 firmware and ELF files.
+Run `pio run -e wokwi` in this directory. Then start the Wokwi simulator from VS Code; `wokwi.toml` points to the generated `wokwi` firmware and ELF files and forwards the web server to `http://localhost:8180`.
+
+For a physical board, upload the firmware, join `OASIS-Control` with password `oasis2026`, stay connected when the phone reports no internet, and open `http://192.168.4.1`. See the repository README for the complete Wokwi and phone walkthroughs.

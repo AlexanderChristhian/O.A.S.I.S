@@ -1,4 +1,9 @@
 [wokwi]
 version = 1
-firmware = ".pio/build/esp32dev/firmware.bin"
-elf = ".pio/build/esp32dev/firmware.elf"
+firmware = ".pio/build/wokwi/firmware.bin"
+elf = ".pio/build/wokwi/firmware.elf"
+
+# Open http://localhost:8180 while the simulator is running.
+[[net.forward]]
+from = "localhost:8180"
+to = "target:80"

@@ -23,6 +23,8 @@ Nama dan NPM mengacu pada proposal Desain Proyek 1 Kelompok 11. Ketua kelompok: 
 - Pemeriksaan kualitas air sebagai interlock sebelum mengaktifkan jalur.
 - LCD I2C 20×4 untuk mode, pH, NTU, dan kategori air.
 - Empat relay untuk pompa utama, katup MCK, pompa RO, dan katup minum.
+- Dashboard web lokal responsif untuk monitoring sensor, status relay, dan pemilihan mode.
+- Access point mandiri dengan captive portal sehingga dashboard dapat dibuka dari ponsel tanpa internet.
 - Pembacaan sensor setiap 250 ms dan ketika mode berubah; log serial setiap 1 detik pada 115200 baud.
 
 ## Menjalankan simulasi
@@ -32,13 +34,42 @@ Siapkan VS Code dengan ekstensi **PlatformIO IDE** dan **Wokwi Simulator**. Akti
 ```sh
 git clone https://github.com/AlexanderChristhian/O.A.S.I.S.git
 cd O.A.S.I.S/O.A.S.I.S
-pio run -e esp32dev
+pio run -e wokwi
 code .
 ```
 
 **Buka folder dalam `O.A.S.I.S/` yang berisi `platformio.ini`**, bukan hanya root repository. Jika `pio` tidak tersedia di terminal biasa, gunakan terminal PlatformIO atau tombol Build di VS Code.
 
 Setelah build berhasil, buka `diagram.json` lalu klik Play, atau jalankan **Wokwi: Start Simulator** dari Command Palette. File `wokwi.toml` sudah menunjuk ke `.pio/build/esp32dev/firmware.bin` dan `firmware.elf`. Simulasi tidak membutuhkan board USB.
+
+### Mencoba dashboard web di Wokwi
+
+1. Build firmware, lalu mulai simulator Wokwi seperti langkah di atas.
+2. Tunggu Serial Monitor menampilkan alamat station dan pesan dashboard.
+3. Buka [http://localhost:8180](http://localhost:8180) pada browser komputer.
+4. Ubah potensiometer di Wokwi dan perhatikan nilai pH, NTU, kategori air, serta relay pada dashboard.
+5. Tekan MCK, OFF, atau DRINK pada dashboard. Mode pada LCD, Serial Monitor, dan rangkaian relay akan mengikuti permintaan selama interlock sensor mengizinkan.
+
+Environment PlatformIO `wokwi` mengaktifkan koneksi station ke `Wokwi-GUEST`; build fisik `esp32dev` sengaja tidak mencoba jaringan terbuka tersebut. `wokwi.toml` meneruskan `localhost:8180` ke port HTTP 80 pada ESP32 virtual. Jika port 8180 sedang digunakan aplikasi lain, ubah angka pada baris `from = "localhost:8180"`, build ulang, lalu gunakan port baru tersebut. Wokwi harus tetap berjalan dan tab simulator sebaiknya tetap terlihat agar simulasi tidak dijeda.
+
+### Mencoba dashboard pada ESP32 fisik dengan ponsel
+
+1. Hubungkan ESP32 melalui USB dan upload firmware dari folder `O.A.S.I.S/`:
+
+   ```sh
+   pio run -e esp32dev -t upload
+   ```
+
+2. Buka daftar Wi-Fi pada ponsel dan sambungkan ke:
+
+   - Nama Wi-Fi: `OASIS-Control`
+   - Kata sandi: `oasis2026`
+
+3. Tetap gunakan jaringan tersebut jika ponsel memperingatkan bahwa jaringan tidak memiliki internet.
+4. Captive portal biasanya membuka dashboard secara otomatis. Jika tidak, buka [http://192.168.4.1](http://192.168.4.1) secara manual—gunakan `http`, bukan `https`.
+5. Putar sensor fisik/potensiometer atau tekan selector. Dashboard diperbarui sekitar setiap 750 ms dan dapat digunakan dari layar komputer maupun ponsel.
+
+Dashboard berjalan sepenuhnya lokal pada ESP32. Tombol web hanya meminta mode; pemeriksaan pH/kekeruhan tetap menentukan apakah relay boleh aktif. OFF dari selector fisik juga tetap mendapat prioritas. Sebelum penggunaan di luar demo, ganti SSID/kata sandi pada `src/main.cpp`; antarmuka ini menggunakan HTTP lokal tanpa TLS dan bukan sistem keselamatan tersertifikasi.
 
 ## Pengoperasian
 
@@ -83,7 +114,7 @@ Gunakan angka pada LCD untuk mengatur knob. Empat LED beban di kanan mewakili po
 
 Simulasi menjalankan logika kontrol dan rangkaian I/O; **belum memodelkan penyaringan atau proses RO**. Menyalakan pompa tidak menurunkan NTU atau mengubah pH. Pembacaan hanya berubah melalui potensiometer. Belum ada model sensor masuk/keluar terpisah, waktu treatment, pengujian pascafiltrasi, atau deteksi kegagalan filter.
 
-Mode DRINK saat ini baru mengaktifkan pompa RO jika pembacaan sudah memenuhi kategori DRINKABLE. Pompa utama, pompa RO, dan katup minum diaktifkan bersama; belum ada urutan treatment. Dashboard IoT, pengelolaan baterai, dan kalibrasi sensor fisik belum diimplementasikan pada milestone ini.
+Mode DRINK saat ini baru mengaktifkan pompa RO jika pembacaan sudah memenuhi kategori DRINKABLE. Pompa utama, pompa RO, dan katup minum diaktifkan bersama; belum ada urutan treatment. Dashboard yang tersedia bersifat lokal, bukan dashboard cloud/IoT. Pengelolaan baterai dan kalibrasi sensor fisik belum diimplementasikan pada milestone ini.
 
 ## Struktur repository
 
@@ -94,6 +125,7 @@ O.A.S.I.S/
   wokwi.toml              Lokasi firmware untuk Wokwi
   diagram.json            Komponen serta koneksi simulasi
   src/main.cpp            Firmware kontrol
+  src/dashboard.h         HTML, CSS, dan JavaScript dashboard lokal
   README.md               Detail pin, alur program, dan relay
   include/ lib/ test/     Folder standar PlatformIO
 ```
@@ -106,4 +138,7 @@ Untuk pemetaan GPIO dan diagram alur, lihat [dokumentasi teknis](O.A.S.I.S/READM
 - **License expired:** aktifkan kembali lisensi melalui alur resmi Wokwi untuk VS Code.
 - **Label diagram masih lama:** tutup tab simulator dan tab diagram, lalu buka kembali `diagram.json` setelah menyimpan perubahan.
 - **Mode aktif tetapi beban mati:** cek pH dan NTU terhadap tabel kriteria; mode terpilih tidak menjamin keluaran diizinkan.
+- **`localhost:8180` tidak terbuka:** pastikan Wokwi masih berjalan, ESP32 telah terhubung ke `Wokwi-GUEST`, dan port 8180 tidak dipakai aplikasi lain.
+- **Ponsel meninggalkan Wi-Fi OASIS:** pilih opsi untuk tetap tersambung walaupun jaringan tidak menyediakan internet, lalu buka `http://192.168.4.1`.
+- **Dashboard terbuka tetapi tidak memperbarui data:** muat ulang halaman dan pastikan URL memakai HTTP; endpoint `/api/status` harus mengembalikan JSON.
 - **Upload tidak menemukan port:** simulasi cukup menggunakan Play Wokwi. Upload ke board fisik membutuhkan perangkat USB dan verifikasi wiring tersendiri.

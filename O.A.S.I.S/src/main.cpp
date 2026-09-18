@@ -18,8 +18,13 @@
 */
 
 #include <Arduino.h>
+#include <DNSServer.h>
 #include <Wire.h>
+#include <WebServer.h>
+#include <WiFi.h>
 #include <LiquidCrystal_I2C.h>
+
+#include "dashboard.h"
 
 // =========================================================
 // PIN DEFINITIONS
@@ -39,6 +44,15 @@ constexpr uint8_t PIN_RELAY_DRINK = 5;
 constexpr uint8_t I2C_SDA = 21;
 constexpr uint8_t I2C_SCL = 22;
 LiquidCrystal_I2C lcd(0x27, 20, 4);
+
+constexpr char AP_SSID[] = "OASIS-Control";
+constexpr char AP_PASSWORD[] = "oasis2026";
+const IPAddress AP_IP(192, 168, 4, 1);
+const IPAddress AP_GATEWAY(192, 168, 4, 1);
+const IPAddress AP_SUBNET(255, 255, 255, 0);
+DNSServer dnsServer;
+WebServer webServer(80);
+bool stationAddressReported = false;
 
 // diagram.json uses PNP active-low relay modules (verified in simulation).
 constexpr uint8_t RELAY_ON  = LOW;
@@ -292,6 +306,14 @@ void updateLCD() {
   printLCDLine(3, row3);
 }
 
+void refreshControlState() {
+  readSensors();
+  waterClass = classifyWater(sensorData);
+  outputs = calculateOutputs(currentMode, waterClass);
+  applyOutputs(outputs);
+  updateLCD();
+}
+
 // =========================================================
 // SERIAL MONITOR
 // =========================================================
@@ -330,6 +352,122 @@ void printSystemStatus() {
 }
 
 // =========================================================
+// LOCAL WEB DASHBOARD
+// =========================================================
+void sendStatusJson() {
+  String payload;
+  payload.reserve(420);
+  payload += F("{\"mode\":\"");
+  payload += modeToString(currentMode);
+  payload += F("\",\"waterClass\":\"");
+  payload += waterClassToString(waterClass);
+  payload += F("\",\"ph\":");
+  payload += String(sensorData.ph, 3);
+  payload += F(",\"turbidity\":");
+  payload += String(sensorData.turbidity, 3);
+  payload += F(",\"outputs\":{\"hosePump\":");
+  payload += outputs.hosePump ? F("true") : F("false");
+  payload += F(",\"mckValve\":");
+  payload += outputs.mckValve ? F("true") : F("false");
+  payload += F(",\"roPump\":");
+  payload += outputs.roPump ? F("true") : F("false");
+  payload += F(",\"drinkValve\":");
+  payload += outputs.drinkValve ? F("true") : F("false");
+  payload += F("},\"apIp\":\"");
+  payload += WiFi.softAPIP().toString();
+  payload += F("\",\"stationIp\":\"");
+  payload += WiFi.status() == WL_CONNECTED ? WiFi.localIP().toString() : String("");
+  payload += F("\",\"uptimeMs\":");
+  payload += String(millis());
+  payload += '}';
+
+  webServer.sendHeader(F("Cache-Control"), F("no-store, max-age=0"));
+  webServer.send(200, F("application/json"), payload);
+}
+
+void handleModeRequest() {
+  if (!webServer.hasArg("mode")) {
+    webServer.send(400, F("application/json"), F("{\"error\":\"missing mode\"}"));
+    return;
+  }
+
+  const String requested = webServer.arg("mode");
+  UserMode nextMode;
+  if (requested == "MCK") nextMode = UserMode::MCK;
+  else if (requested == "OFF") nextMode = UserMode::OFF;
+  else if (requested == "DRINK") nextMode = UserMode::DRINK;
+  else {
+    webServer.send(422, F("application/json"), F("{\"error\":\"mode must be MCK, OFF, or DRINK\"}"));
+    return;
+  }
+
+  if (nextMode != currentMode) {
+    allOutputsOff();
+    currentMode = nextMode;
+    Serial.print(F("[MODE] "));
+    Serial.print(modeToString(currentMode));
+    Serial.println(F(" selected from web dashboard"));
+  }
+  refreshControlState();
+  lastSensorUpdate = millis();
+  sendStatusJson();
+}
+
+void sendDashboard() {
+  webServer.sendHeader(F("Cache-Control"), F("no-store"));
+  webServer.send_P(200, PSTR("text/html; charset=utf-8"), DASHBOARD_HTML);
+}
+
+void redirectToDashboard() {
+  webServer.sendHeader(F("Location"), F("http://192.168.4.1/"), true);
+  webServer.send(302, F("text/plain"), "");
+}
+
+void startWebDashboard() {
+#ifdef OASIS_WOKWI_STA
+  WiFi.mode(WIFI_AP_STA);
+#else
+  WiFi.mode(WIFI_AP);
+#endif
+  WiFi.setSleep(false);
+  WiFi.softAPConfig(AP_IP, AP_GATEWAY, AP_SUBNET);
+  const bool apStarted = WiFi.softAP(AP_SSID, AP_PASSWORD, 6, false, 4);
+
+#ifdef OASIS_WOKWI_STA
+  // Wokwi's incoming port forwarding requires the simulated ESP32 to join
+  // Wokwi-GUEST. The physical build omits this open-network connection.
+  WiFi.begin("Wokwi-GUEST", "", 6);
+#endif
+
+  dnsServer.start(53, "*", AP_IP);
+  webServer.on("/", HTTP_GET, sendDashboard);
+  webServer.on("/api/status", HTTP_GET, sendStatusJson);
+  webServer.on("/api/mode", HTTP_POST, handleModeRequest);
+  webServer.on("/generate_204", HTTP_GET, sendDashboard);
+  webServer.on("/hotspot-detect.html", HTTP_GET, sendDashboard);
+  webServer.on("/connecttest.txt", HTTP_GET, sendDashboard);
+  webServer.on("/ncsi.txt", HTTP_GET, sendDashboard);
+  webServer.on("/favicon.ico", HTTP_GET, []() { webServer.send(204); });
+  webServer.onNotFound(redirectToDashboard);
+  webServer.begin();
+
+  Serial.println();
+  Serial.println(F("--- O.A.S.I.S. local dashboard ---"));
+  Serial.print(F("SoftAP       : "));
+  Serial.println(apStarted ? F("ready") : F("failed"));
+  Serial.print(F("Wi-Fi name   : "));
+  Serial.println(AP_SSID);
+  Serial.print(F("Wi-Fi key    : "));
+  Serial.println(AP_PASSWORD);
+  Serial.print(F("Dashboard    : http://"));
+  Serial.println(WiFi.softAPIP());
+#ifdef OASIS_WOKWI_STA
+  Serial.println(F("Wokwi URL   : http://localhost:8180"));
+#endif
+  Serial.println(F("----------------------------------"));
+}
+
+// =========================================================
 // SETUP
 // =========================================================
 void setup() {
@@ -357,7 +495,10 @@ void setup() {
   printLCDLine(2, "Initializing...");
   printLCDLine(3, "Mode: OFF");
 
-  delay(1200);
+  refreshControlState();
+  startWebDashboard();
+
+  delay(600);
 
   Serial.println();
   Serial.println("O.A.S.I.S. ESP32 simulation started.");
@@ -370,19 +511,21 @@ void setup() {
 // MAIN LOOP
 // =========================================================
 void loop() {
+  dnsServer.processNextRequest();
+  webServer.handleClient();
+
+  if (!stationAddressReported && WiFi.status() == WL_CONNECTED) {
+    stationAddressReported = true;
+    Serial.print(F("[WIFI] Station address: "));
+    Serial.println(WiFi.localIP());
+  }
+
   const bool modeChanged = checkModeButtons();
   if (modeChanged) allOutputsOff();
 
   if (modeChanged || millis() - lastSensorUpdate >= SENSOR_INTERVAL_MS) {
     lastSensorUpdate = millis();
-
-    readSensors();
-    waterClass = classifyWater(sensorData);
-
-    outputs = calculateOutputs(currentMode, waterClass);
-    applyOutputs(outputs);
-
-    updateLCD();
+    refreshControlState();
   }
 
   if (millis() - lastSerialUpdate >= SERIAL_INTERVAL_MS) {
