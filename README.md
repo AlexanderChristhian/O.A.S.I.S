@@ -18,12 +18,12 @@ Nama dan NPM mengacu pada proposal Desain Proyek 1 Kelompok 11. Ketua kelompok: 
 
 ## Fitur milestone saat ini
 
-- Dua potensiometer sebagai input simulasi pH dan kekeruhan; TDS belum digunakan.
+- Tiga potensiometer sebagai input simulasi pH, kekeruhan, dan tegangan baterai 12 V VRLA; TDS belum digunakan.
 - Pilihan **MCK / OFF / DRINK** yang tersimpan setelah tombol dilepas. Mode awal OFF; tidak ada mode AUTO.
 - Pemeriksaan kualitas air sebagai interlock sebelum mengaktifkan jalur.
-- LCD I2C 20×4 untuk mode, pH, NTU, dan kategori air.
+- LCD I2C 20×4 untuk mode, pH, NTU, kategori air, serta estimasi tegangan dan persentase baterai.
 - Empat relay untuk pompa utama, katup MCK, pompa RO, dan katup minum.
-- Dashboard web lokal responsif untuk monitoring sensor, status relay, dan pemilihan mode.
+- Dashboard web lokal responsif untuk monitoring sensor, tegangan dan persentase baterai, status relay, serta pemilihan mode.
 - Access point mandiri dengan captive portal sehingga dashboard dapat dibuka dari ponsel tanpa internet.
 - Pembacaan sensor setiap 250 ms dan ketika mode berubah; log serial setiap 1 detik pada 115200 baud.
 
@@ -40,14 +40,14 @@ code .
 
 **Buka folder dalam `O.A.S.I.S/` yang berisi `platformio.ini`**, bukan hanya root repository. Jika `pio` tidak tersedia di terminal biasa, gunakan terminal PlatformIO atau tombol Build di VS Code.
 
-Setelah build berhasil, buka `diagram.json` lalu klik Play, atau jalankan **Wokwi: Start Simulator** dari Command Palette. File `wokwi.toml` sudah menunjuk ke `.pio/build/esp32dev/firmware.bin` dan `firmware.elf`. Simulasi tidak membutuhkan board USB.
+Setelah build berhasil, buka `diagram.json` lalu klik Play, atau jalankan **Wokwi: Start Simulator** dari Command Palette. File `wokwi.toml` sudah menunjuk ke `.pio/build/wokwi/firmware.bin` dan `firmware.elf`. Simulasi tidak membutuhkan board USB.
 
 ### Mencoba dashboard web di Wokwi
 
 1. Build firmware, lalu mulai simulator Wokwi seperti langkah di atas.
 2. Tunggu Serial Monitor menampilkan alamat station dan pesan dashboard.
 3. Buka [http://localhost:8180](http://localhost:8180) pada browser komputer.
-4. Ubah potensiometer di Wokwi dan perhatikan nilai pH, NTU, kategori air, serta relay pada dashboard.
+4. Ubah potensiometer di Wokwi dan perhatikan nilai pH, NTU, kategori air, tegangan dan persentase baterai, serta relay pada dashboard.
 5. Tekan MCK, OFF, atau DRINK pada dashboard. Mode pada LCD, Serial Monitor, dan rangkaian relay akan mengikuti permintaan selama interlock sensor mengizinkan.
 
 Environment PlatformIO `wokwi` mengaktifkan koneksi station ke `Wokwi-GUEST`; build fisik `esp32dev` sengaja tidak mencoba jaringan terbuka tersebut. `wokwi.toml` meneruskan `localhost:8180` ke port HTTP 80 pada ESP32 virtual. Jika port 8180 sedang digunakan aplikasi lain, ubah angka pada baris `from = "localhost:8180"`, build ulang, lalu gunakan port baru tersebut. Wokwi harus tetap berjalan dan tab simulator sebaiknya tetap terlihat agar simulasi tidak dijeda.
@@ -70,6 +70,14 @@ Environment PlatformIO `wokwi` mengaktifkan koneksi station ke `Wokwi-GUEST`; bu
 5. Putar sensor fisik/potensiometer atau tekan selector. Dashboard diperbarui sekitar setiap 750 ms dan dapat digunakan dari layar komputer maupun ponsel.
 
 Dashboard berjalan sepenuhnya lokal pada ESP32. Tombol web hanya meminta mode; pemeriksaan pH/kekeruhan tetap menentukan apakah relay boleh aktif. OFF dari selector fisik juga tetap mendapat prioritas. Sebelum penggunaan di luar demo, ganti SSID/kata sandi pada `src/main.cpp`; antarmuka ini menggunakan HTTP lokal tanpa TLS dan bukan sistem keselamatan tersertifikasi.
+
+## Pemantauan baterai 12 V VRLA
+
+ESP32 membaca tegangan baterai melalui ADC1 di **GPIO32**. Pada perangkat fisik, gunakan pembagi tegangan: **baterai + → resistor atas 100 kΩ → GPIO32 → resistor bawah 22 kΩ → baterai −/GND ESP32**. Ground baterai dan ESP32 harus tersambung bersama. **Jangan pernah menghubungkan baterai langsung ke GPIO32**; tegangan pada pin ADC harus tetap berada dalam rentang 0–3,3 V. Dengan nilai resistor ini, 3,3 V pada pin setara dengan sekitar 18,3 V pada baterai. Pastikan batas tersebut sesuai dengan seluruh kondisi pengisian baterai sebenarnya sebelum memasang perangkat fisik.
+
+Rumus pada firmware mengembalikan tegangan baterai dari pembacaan ADC dan rasio pembagi, lalu memetakan tegangan tersebut secara linear menjadi 0–100%. Konstanta `BATTERY_EMPTY_V` (awal 11,8 V) dan `BATTERY_FULL_V` (awal 12,8 V) adalah **nilai sementara** yang perlu disesuaikan dengan baterai dan kondisi ukur sebenarnya. Jika rangkaian berubah, sesuaikan juga `BATTERY_DIVIDER_R_TOP_OHMS`, `BATTERY_DIVIDER_R_BOTTOM_OHMS`, dan `BATTERY_ADC_FULL_SCALE_V` di `O.A.S.I.S/src/main.cpp`. Persentase ini hanya perkiraan berdasarkan tegangan, bukan ukuran kesehatan atau sisa umur baterai. Tegangan dan persentase ditampilkan di LCD dan dashboard sebagai informasi; nilainya tidak mematikan atau mengizinkan pompa dan katup.
+
+Di Wokwi, potensiometer baterai mewakili **tegangan yang sudah turun setelah pembagi**, bukan baterai 12 V yang tersambung langsung. Putar knob tersebut untuk menguji tampilan persentase; komponen baterai, pengisian, dan perubahan tegangannya saat beban bekerja tidak dimodelkan.
 
 ## Pengoperasian
 
@@ -112,9 +120,9 @@ Gunakan angka pada LCD untuk mengatur knob. Empat LED beban di kanan mewakili po
 
 ## Batas simulasi
 
-Simulasi menjalankan logika kontrol dan rangkaian I/O; **belum memodelkan penyaringan atau proses RO**. Menyalakan pompa tidak menurunkan NTU atau mengubah pH. Pembacaan hanya berubah melalui potensiometer. Belum ada model sensor masuk/keluar terpisah, waktu treatment, pengujian pascafiltrasi, atau deteksi kegagalan filter.
+Simulasi menjalankan logika kontrol dan rangkaian I/O; **belum memodelkan penyaringan atau proses RO**. Menyalakan pompa tidak menurunkan NTU atau mengubah pH. Pembacaan sensor dan baterai hanya berubah melalui potensiometer. Belum ada model sensor masuk/keluar terpisah, waktu treatment, pengujian pascafiltrasi, atau deteksi kegagalan filter.
 
-Mode DRINK saat ini baru mengaktifkan pompa RO jika pembacaan sudah memenuhi kategori DRINKABLE. Pompa utama, pompa RO, dan katup minum diaktifkan bersama; belum ada urutan treatment. Dashboard yang tersedia bersifat lokal, bukan dashboard cloud/IoT. Pengelolaan baterai dan kalibrasi sensor fisik belum diimplementasikan pada milestone ini.
+Mode DRINK saat ini baru mengaktifkan pompa RO jika pembacaan sudah memenuhi kategori DRINKABLE. Pompa utama, pompa RO, dan katup minum diaktifkan bersama; belum ada urutan treatment. Dashboard yang tersedia bersifat lokal, bukan dashboard cloud/IoT. Pengelolaan baterai seperti pengisian dan proteksi tegangan rendah, serta kalibrasi sensor fisik, belum diimplementasikan pada milestone ini.
 
 ## Struktur repository
 
