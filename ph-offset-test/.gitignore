@@ -1,0 +1,5 @@
+.pio/
+logs/
+__pycache__/
+restart_snapshot.json
+final-session-snapshot.json

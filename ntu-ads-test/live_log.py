@@ -23,10 +23,6 @@ readings = collections.deque(maxlen=100)
 state.update(ntu_total=0.0, ntu_count=0)
 def estimate_ntu(voltage):
     return -1120.4 * voltage**2 + 5742.3 * voltage - 4352.9 if 2.5 <= voltage <= 4.2 else None
-def friend_ntu(voltage):
-    if voltage <= 0:
-        return 3000.0
-    return max(0.0, min(3000.0, 1.0 + 5783.0 * math.log(3.22 / voltage)))
 snapshot_path = root / 'restart_snapshot.json'
 if snapshot_path.exists():
     saved = json.loads(snapshot_path.read_text(encoding='utf-8'))
@@ -34,7 +30,7 @@ if snapshot_path.exists():
         state[key] = saved.get(key, state[key])
     for row in saved.get('readings', []):
         ntu = estimate_ntu(row[1])
-        readings.append(row[:4] + [ntu, friend_ntu(row[1])])
+        readings.append(row[:4] + [ntu])
     # Historical NTU total may include more than the visible 100 rows.
     state['ntu_total'] = saved.get('ntu_total', sum(r[4] for r in readings if r[4] is not None))
     state['ntu_count'] = saved.get('ntu_count', sum(r[4] is not None for r in readings))
@@ -45,10 +41,10 @@ page = '''<!doctype html><meta charset="utf-8"><title>OASIS NTU live test</title
 <p>Compare displayed voltage with your multimeter before interpreting readings. NTU is an uncalibrated DFRobot curve estimate: -1120.4V² + 5742.3V - 4352.9. Outside 2.5–4.2V, no NTU estimate is shown.</p>
 <input id="label" placeholder="Sample: dispenser / tap / ..."><button onclick="mark()">Mark sample</button>
 <p><button id="pause" onclick="control('pause')">Pause</button> <button id="resume" onclick="control('resume')">Resume</button></p><p id="average">Running average: waiting for readings</p><p id="status"></p><div id="latest">Waiting for reading...</div>
-<p>Friend model: 1 + 5783 × ln(3.22 / V), limited to 0–3000. Both models use the same measured voltage and remain uncalibrated. Latest readings first.</p><table><thead><tr><th>Water sample</th><th>Current voltage (V)</th><th>DFRobot NTU estimate</th><th>Friend NTU estimate</th></tr></thead><tbody id="readings"></tbody></table>
+<p>DFRobot reference estimate only; uncalibrated for this module. Latest readings first.</p><table><thead><tr><th>Water sample</th><th>Current voltage (V)</th><th>DFRobot NTU estimate</th></tr></thead><tbody id="readings"></tbody></table>
 <script>async function mark(){await fetch('/mark',{method:'POST',body:document.querySelector('#label').value})}
 async function control(action){await fetch('/'+action,{method:'POST'});await update()}
-async function update(){try{let d=await(await fetch('/data')).json();document.querySelector('#status').textContent=(!d.connected?'Reconnecting':d.paused?'Paused':'Collecting')+' | Sample: '+d.sample+(d.error?' | '+d.error:'');document.querySelector('#pause').disabled=d.paused;document.querySelector('#resume').disabled=!d.paused;document.querySelector('#average').textContent=d.count?'Running average: '+(d.total/d.count).toFixed(5)+' V ('+d.count+' readings)'+(d.ntu_count?' | Mean NTU estimate: '+(d.ntu_total/d.ntu_count).toFixed(1):' | NTU: outside curve range'):'Running average: reset — no readings';let body=document.querySelector('#readings');body.replaceChildren();for(let row of [...d.readings].reverse()){let tr=document.createElement('tr');[row[0],row[1],row[4],row[5]].forEach((value,i)=>{let td=document.createElement('td');td.textContent=i===0?value:i>=2?(value===null?'Outside curve range':Number(value).toFixed(1)):Number(value).toFixed(5);tr.appendChild(td)});body.appendChild(tr)}document.querySelector('#latest').textContent=d.readings.length?Number(d.readings[d.readings.length-1][1]).toFixed(5)+' V · '+(d.readings[d.readings.length-1][4]===null?'NTU outside curve range':Number(d.readings[d.readings.length-1][4]).toFixed(1)+' NTU (DFRobot estimate)')+' · '+Number(d.readings[d.readings.length-1][5]).toFixed(1)+' NTU (friend estimate)':d.paused?'Paused':'Waiting for reading...'}catch(e){document.querySelector('#status').textContent='Logger unavailable: '+e}}setInterval(update,1000);update()</script>'''
+async function update(){try{let d=await(await fetch('/data')).json();document.querySelector('#status').textContent=(!d.connected?'Reconnecting':d.paused?'Paused':'Collecting')+' | Sample: '+d.sample+(d.error?' | '+d.error:'');document.querySelector('#pause').disabled=d.paused;document.querySelector('#resume').disabled=!d.paused;document.querySelector('#average').textContent=d.count?'Running average: '+(d.total/d.count).toFixed(5)+' V ('+d.count+' readings)'+(d.ntu_count?' | Mean NTU estimate: '+(d.ntu_total/d.ntu_count).toFixed(1):' | NTU: outside curve range'):'Running average: reset — no readings';let body=document.querySelector('#readings');body.replaceChildren();for(let row of [...d.readings].reverse()){let tr=document.createElement('tr');[row[0],row[1],row[4]].forEach((value,i)=>{let td=document.createElement('td');td.textContent=i===0?value:i>=2?(value===null?'Outside curve range':Number(value).toFixed(1)):Number(value).toFixed(5);tr.appendChild(td)});body.appendChild(tr)}document.querySelector('#latest').textContent=d.readings.length?Number(d.readings[d.readings.length-1][1]).toFixed(5)+' V · '+(d.readings[d.readings.length-1][4]===null?'NTU outside curve range':Number(d.readings[d.readings.length-1][4]).toFixed(1)+' NTU (DFRobot estimate)'):d.paused?'Paused':'Waiting for reading...'}catch(e){document.querySelector('#status').textContent='Logger unavailable: '+e}}setInterval(update,1000);update()</script>'''
 
 def record(text):
     entry = datetime.datetime.now().astimezone().isoformat(timespec='seconds') + ' ' + text
@@ -63,12 +59,11 @@ def record(text):
                 if state['paused']:
                     return
                 ntu = estimate_ntu(values[2])
-                friend = friend_ntu(values[2])
-                readings.append([state['sample'], *values[2:5], ntu, friend])
+                readings.append([state['sample'], *values[2:5], ntu])
                 if ntu is not None:
                     state['ntu_total'] += ntu
                     state['ntu_count'] += 1
-                entry += ',NTU_estimate=' + (f'{ntu:.3f}' if ntu is not None else 'OUTSIDE_CURVE_RANGE') + f',Friend_NTU_estimate={friend:.3f}'
+                entry += ',NTU_estimate=' + (f'{ntu:.3f}' if ntu is not None else 'OUTSIDE_CURVE_RANGE')
                 state['total'] += values[2]
                 state['count'] += 1
         lines.append(entry)

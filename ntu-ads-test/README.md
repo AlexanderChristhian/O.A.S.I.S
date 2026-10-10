@@ -38,10 +38,10 @@ Adapt the device selection for other boards. Close the logger before uploading
 or opening another serial monitor; only one application can hold the port.
 
 Open http://127.0.0.1:8123. The table shows sample name, latest window voltage,
-DFRobot NTU estimate and friend-model NTU estimate. Voltage is averaged over
-64 ADC conversions; it is not an instantaneous single conversion. Both NTU
-models remain uncalibrated. The DFRobot curve is used only from 2.5 to 4.2V;
-the friend model uses 1 + 5783 ln(3.22/V), clamped to 0–3000.
+DFRobot NTU estimate. Voltage is averaged over 64 ADC conversions and reported
+approximately once per second; it is not an instantaneous single conversion.
+The estimate remains uncalibrated. The DFRobot curve is used only from 2.5 to 4.2V.
+The friend model has been removed from the dashboard and new saved log entries.
 
 Pause freezes displayed readings and averages. Resume clears them and starts
 fresh; previous saved logs remain intact. Mark each water sample before collecting.
@@ -50,4 +50,4 @@ Stop the logger with Ctrl+C. Files in logs/ are local and ignored by Git.
 
 Compare samples using consistent placement, depth, container and lighting.
 Known certified NTU standards and independent validation are required before
-using either model as an actual NTU measurement.
+using the conversion as an actual NTU measurement.
