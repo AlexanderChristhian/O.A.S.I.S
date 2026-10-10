@@ -1,6 +1,6 @@
 # O.A.S.I.S. control simulation
 
-This PlatformIO/Wokwi milestone simulates the pH and turbidity sensors with two potentiometers. TDS is intentionally excluded.
+This PlatformIO/Wokwi milestone simulates the pH and turbidity sensors and a 12 V VRLA battery voltage input with three potentiometers. TDS is intentionally excluded.
 
 For the project overview, group member names/NPM, setup instructions, and demo walkthrough, see the [repository README](../README.md).
 
@@ -12,6 +12,7 @@ Target: ESP32 Dev Module (`esp32dev`), Arduino framework, Espressif32 platform. 
 | --- | --- | --- |
 | pH potentiometer | 34 | 12-bit ADC, mapped to 0–14 pH |
 | Turbidity potentiometer | 35 | 12-bit ADC, mapped to 0–50 NTU |
+| Battery voltage input | 32 | ADC1, reads the divided voltage; Wokwi uses a potentiometer |
 | MCK button | 13 | Active-low, INPUT_PULLUP |
 | OFF button | 14 | Active-low, INPUT_PULLUP |
 | DRINK button | 27 | Active-low, INPUT_PULLUP |
@@ -21,17 +22,26 @@ Target: ESP32 Dev Module (`esp32dev`), Arduino framework, Espressif32 platform. 
 | RO pump relay | 23 | Active-low PNP module |
 | Drink valve relay | 5 | Active-low PNP module |
 
-Sensor conversions: `pH = raw * 14 / 4095`, `NTU = raw * 50 / 4095`. Wokwi's knob attribute uses its own scale; use the resulting LCD values during a demo. The LCD rounds to two decimals; classification uses the unrounded values.
+Sensor conversions: `pH = raw * 14 / 4095`, `NTU = raw * 50 / 4095`. The battery reading is converted separately using the editable calibration constants described below. Wokwi's knob attribute uses its own scale; use the resulting LCD values during a demo. The LCD rounds water sensor readings to two decimals; classification uses the unrounded values.
+
+### Battery voltage and percentage calibration
+
+For a physical 12 V VRLA battery, connect **battery positive → 100 kΩ upper resistor → GPIO32 → 22 kΩ lower resistor → battery negative / ESP32 GND**. The battery and ESP32 must share ground. **Never connect the battery directly to an ESP32 GPIO.** Keep the voltage at GPIO32 within 0–3.3 V under all battery conditions, including charging. This divider maps 3.3 V at the ADC to about 18.3 V at the battery.
+
+The firmware estimates battery voltage using `Vbattery = (raw / 4095) × ADC full-scale voltage × (upper resistor + lower resistor) / lower resistor`. It then linearly maps the configured empty and full battery voltages to 0–100% and clamps the result. In `src/main.cpp`, edit `BATTERY_EMPTY_V` (initially 11.8 V), `BATTERY_FULL_V` (initially 12.8 V), `BATTERY_DIVIDER_R_TOP_OHMS`, `BATTERY_DIVIDER_R_BOTTOM_OHMS`, and `BATTERY_ADC_FULL_SCALE_V` after measuring the actual circuit. The 11.8–12.8 V bounds are provisional, not validated thresholds for a particular VRLA battery. The voltage-derived percentage is an approximate charge indication, not a measure of battery health or remaining service life. It is informational and does not affect the water-quality interlock or switch pumps and valves.
+
+The Wokwi battery potentiometer represents the voltage **after** the divider at GPIO32. It is not a simulated 12 V battery. Wokwi does not model charge, discharge, or voltage sag under load.
 
 ## Controls
 
 - pH potentiometer (GPIO34): maps 0-4095 to pH 0.0-14.0.
 - Turbidity potentiometer (GPIO35): maps 0-4095 to 0-50 NTU.
+- Battery potentiometer (GPIO32): simulates the divided ADC voltage used for the battery voltage and percentage display.
 - `1` / blue button: MCK mode.
 - `2` / yellow button: OFF mode (all outputs disabled).
 - `3` / green button: DRINK mode.
 
-The 20x4 I2C LCD displays the selected mode, pH, turbidity, and the resulting water class.
+The 20x4 I2C LCD displays the selected mode, pH, turbidity, resulting water class, and battery voltage and percentage.
 
 Startup mode is OFF. Click a button once to select and retain a mode; releasing it does not reset the mode. Selecting MCK or DRINK starts the permitted route without a separate start button. OFF keeps the ESP32, sensors, and LCD running but disables all pumps and valves. OFF has immediate priority. The diagram disables button bounce, so firmware accepts short clicks without a debounce delay; physical contacts require an appropriate debounce interval. Simultaneous MCK and DRINK requests select OFF. Release the buttons before selecting again. Do not Ctrl-click to hold these mode buttons.
 
@@ -44,7 +54,7 @@ The firmware runs a port-80 HTTP server and a wildcard DNS server alongside the 
 | Endpoint | Method | Purpose |
 | --- | --- | --- |
 | `/` | GET | Responsive embedded dashboard |
-| `/api/status` | GET | Current mode, classification, readings, relay outputs, IPs, and uptime as JSON |
+| `/api/status` | GET | Current mode, classification, water readings, `batteryVoltage` (V), `batteryPercent` (0–100), relay outputs, IPs, and uptime as JSON |
 | `/api/mode` | POST | Requests `MCK`, `OFF`, or `DRINK` using a form field named `mode` |
 
 The browser polls status every 750 ms. A web mode request is applied to the same `currentMode` used by the physical controls, immediately clears previous outputs, re-reads the sensors, recalculates the interlock, updates the LCD, and returns the resulting state. It cannot command an individual relay or bypass quality classification. A subsequently pressed physical button can change the mode; a held OFF input has priority.
@@ -71,7 +81,7 @@ The simulation does not model filtration or RO treatment: switching pumps or mod
 flowchart TD
     START([Power on]) --> INIT[Initialize ESP32, LCD, buttons, and relay pins]
     INIT --> SAFE[Set all relay outputs OFF]
-    SAFE --> INPUTS[Read mode buttons and pH/turbidity potentiometers]
+    SAFE --> INPUTS[Read mode buttons and pH/turbidity/battery potentiometers]
 
     INPUTS --> PH{"pH between 6.5 and 8.5?"}
     PH -- No --> UNSAFE[Water class: UNSAFE]
@@ -98,7 +108,7 @@ flowchart TD
     MCK_ROUTE --> APPLY[Write relay outputs]
     DRINK_ROUTE --> APPLY
     BLOCKED --> APPLY
-    APPLY --> DISPLAY[Update LCD and serial status]
+    APPLY --> DISPLAY[Update LCD, web state, and serial status including battery]
     DISPLAY --> WAIT[Wait until the next 250 ms sensor cycle]
     WAIT --> INPUTS
 ```
@@ -110,7 +120,7 @@ sequenceDiagram
     actor User
     participant Buttons as Mode buttons
     participant ESP32
-    participant Sensors as pH and turbidity pots
+    participant Sensors as pH, turbidity, and battery pots
     participant Web as Local web dashboard
     participant Relays as Pump and valve relays
     participant LCD
@@ -128,9 +138,9 @@ sequenceDiagram
     end
 
     loop Every 250 ms or on mode change
-        ESP32->>Sensors: Read GPIO34 and GPIO35 ADC values
-        Sensors-->>ESP32: Raw pH and turbidity values
-        ESP32->>ESP32: Map readings and classify water
+        ESP32->>Sensors: Read GPIO34, GPIO35, and GPIO32 ADC values
+        Sensors-->>ESP32: Raw water sensor and divided battery voltage values
+        ESP32->>ESP32: Map readings, estimate battery %, and classify water
         ESP32->>ESP32: Calculate outputs from mode + water class
 
         alt Drinking route permitted
@@ -141,9 +151,9 @@ sequenceDiagram
             ESP32->>Relays: All outputs OFF
         end
 
-        ESP32->>LCD: Show mode, pH, NTU, and water class
+        ESP32->>LCD: Show mode, pH, NTU, water class, and battery V/%
         Web->>ESP32: GET /api/status every 750 ms
-        ESP32-->>Web: Readings, classification, and outputs
+        ESP32-->>Web: Readings, battery estimate, classification, and outputs
     end
 
     loop Every 1 second

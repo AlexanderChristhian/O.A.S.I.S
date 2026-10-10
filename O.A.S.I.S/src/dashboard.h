@@ -79,6 +79,12 @@ const char DASHBOARD_HTML[] PROGMEM = R"HTML(
     .meter { height: 3px; margin-top: 26px; background: rgba(255,255,255,.08); position: relative; }
     .meter span { display: block; width: var(--pct, 0%); height: 100%; max-width: 100%; background: var(--quality); transition: width .35s ease, background .35s ease; }
     .sensor-note { margin-top: 11px; color: var(--muted); font-size: 10px; }
+    .battery-sensor { grid-column: 1 / -1; min-height: 150px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(115px, .42fr); align-items: center; gap: 24px; }
+    .battery-sensor .sensor-value { margin-top: 15px; }
+    .battery-sensor .meter { margin-top: 19px; }
+    .battery-sensor .meter span { background: var(--aqua); }
+    .battery-voltage { margin-top: 14px; font-size: 27px; line-height: 1; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .battery-voltage small { margin-left: 4px; color: var(--muted); font-size: 12px; font-weight: 400; }
 
     .workspace { display: grid; grid-template-columns: minmax(310px,.72fr) minmax(0,1.28fr); gap: 22px; margin-top: 22px; }
     .section { background: var(--panel); border: 1px solid var(--line); backdrop-filter: blur(16px); }
@@ -132,6 +138,9 @@ const char DASHBOARD_HTML[] PROGMEM = R"HTML(
       .sensor { min-height: 160px; padding: 19px 16px; }
       .sensor-value { margin-top: 18px; font-size: 34px; }
       .meter { margin-top: 19px; }
+      .battery-sensor { min-height: 140px; gap: 12px; }
+      .battery-sensor .sensor-value { margin-top: 14px; }
+      .battery-voltage { font-size: 23px; }
       .modes { gap: 5px; padding: 12px; }
       .mode-button { min-height: 92px; padding: 12px 9px; }
       .mode-index { margin-bottom: 18px; }
@@ -239,6 +248,7 @@ const char DASHBOARD_HTML[] PROGMEM = R"HTML(
     .sensor-label { color: #224cac; font-weight: 700; }
     .sensor-value { color: #262e6e; font-weight: 700; }
     .sensor-value small, .sensor-note { color: #646b80; }
+    .battery-voltage { color: #262e6e; }
     .meter { background: #dce2f0; }
 
     .workspace { gap: 24px; }
@@ -327,6 +337,18 @@ const char DASHBOARD_HTML[] PROGMEM = R"HTML(
             <div class="meter" aria-hidden="true"><span id="ntuMeter"></span></div>
             <div class="sensor-note">Drink ≤5 · MCK &lt;10</div>
           </article>
+          <article class="sensor battery-sensor" aria-label="12 volt VRLA battery status">
+            <div>
+              <div class="sensor-label">12 V VRLA battery</div>
+              <div class="sensor-value"><span id="batteryPercent">--</span><small>%</small></div>
+              <div class="meter" aria-hidden="true"><span id="batteryMeter"></span></div>
+              <div class="sensor-note">Charge estimate from voltage</div>
+            </div>
+            <div>
+              <div class="sensor-label">Measured voltage</div>
+              <div class="battery-voltage"><span id="batteryVoltage">--</span><small>V</small></div>
+            </div>
+          </article>
         </div>
       </section>
 
@@ -375,6 +397,11 @@ const char DASHBOARD_HTML[] PROGMEM = R"HTML(
       $('ntuValue').textContent = Number(data.turbidity).toFixed(2);
       $('phMeter').style.setProperty('--pct', Math.min(100, data.ph / 14 * 100) + '%');
       $('ntuMeter').style.setProperty('--pct', Math.min(100, data.turbidity / 50 * 100) + '%');
+      const batteryPercent = Number(data.batteryPercent);
+      const batteryVoltage = Number(data.batteryVoltage);
+      $('batteryPercent').textContent = Number.isFinite(batteryPercent) ? Math.round(batteryPercent) : '--';
+      $('batteryVoltage').textContent = Number.isFinite(batteryVoltage) ? batteryVoltage.toFixed(2) : '--';
+      $('batteryMeter').style.setProperty('--pct', Number.isFinite(batteryPercent) ? Math.max(0, Math.min(100, batteryPercent)) + '%' : '0%');
       modeButtons.forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.mode === data.mode)));
 
       const copy = data.waterClass === 'DRINKABLE'

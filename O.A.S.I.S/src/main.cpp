@@ -4,6 +4,7 @@
   Simulates:
   - pH sensor          -> potentiometer on GPIO34
   - Turbidity sensor   -> potentiometer on GPIO35
+  - 12 V VRLA battery  -> divided voltage on GPIO32 (potentiometer in Wokwi)
   - 3 operating modes  -> MCK / OFF / DRINK (firmware-latched buttons)
   - 20x4 I2C LCD       -> SDA 21, SCL 22
   - 4 relay outputs:
@@ -31,6 +32,7 @@
 // =========================================================
 constexpr uint8_t PIN_PH        = 34;
 constexpr uint8_t PIN_TURBIDITY = 35;
+constexpr uint8_t PIN_BATTERY   = 32; // ADC1 remains available while Wi-Fi runs.
 
 constexpr uint8_t PIN_MODE_MCK   = 13;
 constexpr uint8_t PIN_MODE_OFF   = 14;
@@ -80,6 +82,27 @@ constexpr float SIM_NTU_MIN = 0.0f;
 constexpr float SIM_NTU_MAX = 50.0f;
 
 // =========================================================
+// 12 V VRLA BATTERY ESTIMATE - EDIT THESE VALUES AFTER MEASUREMENT
+// =========================================================
+// On real hardware: battery + -> R_TOP -> GPIO32 -> R_BOTTOM -> battery -.
+// Battery - must share GND with the ESP32. Never connect 12 V directly to GPIO32.
+// The Wokwi potentiometer drives GPIO32 with the equivalent divided voltage.
+constexpr float BATTERY_DIVIDER_R_TOP_OHMS = 100000.0f;
+constexpr float BATTERY_DIVIDER_R_BOTTOM_OHMS = 22000.0f;
+// Voltage represented by raw ADC value 4095. Calibrate this for the real ESP32.
+constexpr float BATTERY_ADC_FULL_SCALE_V = 3.3f;
+// Provisional rested-battery endpoints; replace with measurements for your VRLA.
+constexpr float BATTERY_EMPTY_V = 11.8f;  // 0%
+constexpr float BATTERY_FULL_V  = 12.8f;  // 100%
+
+static_assert(BATTERY_DIVIDER_R_BOTTOM_OHMS > 0.0f,
+              "Battery divider bottom resistor must be positive");
+static_assert(BATTERY_ADC_FULL_SCALE_V > 0.0f,
+              "Battery ADC full-scale voltage must be positive");
+static_assert(BATTERY_FULL_V > BATTERY_EMPTY_V,
+              "Battery full voltage must exceed empty voltage");
+
+// =========================================================
 // TYPES
 // =========================================================
 enum class UserMode {
@@ -97,8 +120,11 @@ enum class WaterClass {
 struct SensorData {
   int phRaw;
   int turbidityRaw;
+  int batteryRaw;
   float ph;
   float turbidity;
+  float batteryVoltage;
+  float batteryPercent;
 };
 
 struct Outputs {
@@ -171,12 +197,23 @@ void printLCDLine(uint8_t row, String text) {
 void readSensors() {
   sensorData.phRaw        = analogRead(PIN_PH);
   sensorData.turbidityRaw = analogRead(PIN_TURBIDITY);
+  sensorData.batteryRaw   = analogRead(PIN_BATTERY);
 
   sensorData.ph = mapFloat(
       sensorData.phRaw, 0, 4095, SIM_PH_MIN, SIM_PH_MAX);
 
   sensorData.turbidity = mapFloat(
       sensorData.turbidityRaw, 0, 4095, SIM_NTU_MIN, SIM_NTU_MAX);
+
+  const float adcVoltage = sensorData.batteryRaw * BATTERY_ADC_FULL_SCALE_V / 4095.0f;
+  sensorData.batteryVoltage = adcVoltage *
+      (BATTERY_DIVIDER_R_TOP_OHMS + BATTERY_DIVIDER_R_BOTTOM_OHMS) /
+      BATTERY_DIVIDER_R_BOTTOM_OHMS;
+  // Voltage-based state-of-charge is approximate, especially under load/charge.
+  sensorData.batteryPercent = constrain(
+      (sensorData.batteryVoltage - BATTERY_EMPTY_V) * 100.0f /
+          (BATTERY_FULL_V - BATTERY_EMPTY_V),
+      0.0f, 100.0f);
 }
 
 // =========================================================
@@ -289,13 +326,15 @@ void allOutputsOff() {
 // LCD
 // =========================================================
 void updateLCD() {
-  String row0 = "OASIS " + String(modeToString(currentMode));
+  String row0 = "OASIS " + String(modeToString(currentMode)) +
+      " B:" + String(sensorData.batteryPercent, 0) + "%";
 
   String row1 =
       "pH:" + String(sensorData.ph, 2);
 
   String row2 =
-      "NTU:" + String(sensorData.turbidity, 2);
+      "NTU:" + String(sensorData.turbidity, 2) +
+      " B:" + String(sensorData.batteryVoltage, 1) + "V";
 
   String row3 =
       "STATUS: " + String(waterClassToString(waterClass));
@@ -331,6 +370,12 @@ void printSystemStatus() {
   Serial.print(sensorData.turbidity, 2);
   Serial.println(" NTU");
 
+  Serial.print("Battery     : ");
+  Serial.print(sensorData.batteryVoltage, 2);
+  Serial.print(" V / ");
+  Serial.print(sensorData.batteryPercent, 1);
+  Serial.println(" % (voltage estimate)");
+
   Serial.print("Water       : ");
   Serial.println(waterClassToString(waterClass));
 
@@ -356,7 +401,7 @@ void printSystemStatus() {
 // =========================================================
 void sendStatusJson() {
   String payload;
-  payload.reserve(420);
+  payload.reserve(480);
   payload += F("{\"mode\":\"");
   payload += modeToString(currentMode);
   payload += F("\",\"waterClass\":\"");
@@ -365,6 +410,10 @@ void sendStatusJson() {
   payload += String(sensorData.ph, 3);
   payload += F(",\"turbidity\":");
   payload += String(sensorData.turbidity, 3);
+  payload += F(",\"batteryVoltage\":");
+  payload += String(sensorData.batteryVoltage, 3);
+  payload += F(",\"batteryPercent\":");
+  payload += String(sensorData.batteryPercent, 1);
   payload += F(",\"outputs\":{\"hosePump\":");
   payload += outputs.hosePump ? F("true") : F("false");
   payload += F(",\"mckValve\":");
@@ -474,6 +523,7 @@ void setup() {
   Serial.begin(115200);
 
   analogReadResolution(12);
+  analogSetPinAttenuation(PIN_BATTERY, ADC_11db);
 
   pinMode(PIN_MODE_MCK, INPUT_PULLUP);
   pinMode(PIN_MODE_OFF, INPUT_PULLUP);

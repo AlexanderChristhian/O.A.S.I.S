@@ -53,6 +53,27 @@
       "attrs": { "text": "Turbidity -> GPIO35" }
     },
     {
+      "type": "wokwi-potentiometer",
+      "id": "batteryPot1",
+      "top": 123.5,
+      "left": -211.4,
+      "attrs": { "value": "710" }
+    },
+    {
+      "type": "wokwi-text",
+      "id": "batteryLabel1",
+      "top": 96,
+      "left": -260,
+      "attrs": { "text": "Battery -> D32" }
+    },
+    {
+      "type": "wokwi-text",
+      "id": "batteryDividerLabel1",
+      "top": 30,
+      "left": -260,
+      "attrs": { "text": "VRLA 12V: pot = 100k/22k divider output" }
+    },
+    {
       "type": "wokwi-text",
       "id": "modeLabel1",
       "top": 614.4,
@@ -209,6 +230,7 @@
     [ "esp1:3V3", "phPot1:VCC", "red", [ "h79.1", "v-174.3", "h-488.8" ] ],
     [ "esp1:D34", "phPot1:SIG", "green", [ "h-323.8", "v-136.1" ] ],
     [ "esp1:D35", "turbPot1:SIG", "green", [ "h-448.6", "v-145.9" ] ],
+    [ "esp1:D32", "batteryPot1:SIG", "cyan", [ "h-573.4", "v-155.5" ] ],
     [ "esp1:VIN", "lcd1:VCC", "red", [ "h-55", "v-308.7", "h265", "h90.6" ] ],
     [ "esp1:GND.1", "lcd1:GND", "black", [ "h40.7", "v-308.8", "h163.6" ] ],
     [ "esp1:D21", "lcd1:SDA", "green", [ "h45", "v-203.5", "h159.3" ] ],
@@ -248,8 +270,10 @@
     [ "ledHose1:C", "ledMck1:C", "black", [ "h19.2", "v-96" ] ],
     [ "ledMck1:C", "ledRo1:C", "black", [ "h28.8", "v-96" ] ],
     [ "phPot1:VCC", "turbPot1:VCC", "red", [ "v67.2", "h-124.8" ] ],
+    [ "turbPot1:VCC", "batteryPot1:VCC", "red", [ "v67.2", "h-124.8" ] ],
     [ "esp1:GND.2", "phPot1:GND", "black", [ "h0" ] ],
-    [ "esp1:GND.2", "turbPot1:GND", "black", [ "h0" ] ]
+    [ "esp1:GND.2", "turbPot1:GND", "black", [ "h0" ] ],
+    [ "turbPot1:GND", "batteryPot1:GND", "black", [ "v86.4", "h-124.8" ] ]
   ],
   "dependencies": {}
 }
