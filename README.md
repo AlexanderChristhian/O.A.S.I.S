@@ -23,7 +23,7 @@ Nama dan NPM mengacu pada proposal Desain Proyek 1 Kelompok 11. Ketua kelompok: 
 - Pemeriksaan kualitas air sebagai interlock sebelum mengaktifkan jalur.
 - LCD I2C 20×4 untuk mode, pH, NTU, kategori air, serta estimasi tegangan dan persentase baterai.
 - Empat relay untuk pompa utama, katup MCK, pompa RO, dan katup minum.
-- Dashboard web lokal responsif untuk monitoring sensor, tegangan dan persentase baterai, status relay, serta pemilihan mode.
+- Dashboard web lokal responsif untuk monitoring sensor, tegangan dan persentase baterai, status relay, serta indikator current route.
 - Access point mandiri dengan captive portal sehingga dashboard dapat dibuka dari ponsel tanpa internet.
 - Pembacaan sensor setiap 250 ms dan ketika mode berubah; log serial setiap 1 detik pada 115200 baud.
 
@@ -48,7 +48,7 @@ Setelah build berhasil, buka `diagram.json` lalu klik Play, atau jalankan **Wokw
 2. Tunggu Serial Monitor menampilkan alamat station dan pesan dashboard.
 3. Buka [http://localhost:8180](http://localhost:8180) pada browser komputer.
 4. Ubah potensiometer di Wokwi dan perhatikan nilai pH, NTU, kategori air, tegangan dan persentase baterai, serta relay pada dashboard.
-5. Tekan MCK, OFF, atau DRINK pada dashboard. Mode pada LCD, Serial Monitor, dan rangkaian relay akan mengikuti permintaan selama interlock sensor mengizinkan.
+5. Tekan tombol MCK, OFF, atau DRINK di simulator Wokwi. Indikator Current route pada dashboard mengikuti mode ESP32; status relay tetap mengikuti interlock sensor.
 
 Environment PlatformIO `wokwi` mengaktifkan koneksi station ke `Wokwi-GUEST`; build fisik `esp32dev` sengaja tidak mencoba jaringan terbuka tersebut. `wokwi.toml` meneruskan `localhost:8180` ke port HTTP 80 pada ESP32 virtual. Jika port 8180 sedang digunakan aplikasi lain, ubah angka pada baris `from = "localhost:8180"`, build ulang, lalu gunakan port baru tersebut. Wokwi harus tetap berjalan dan tab simulator sebaiknya tetap terlihat agar simulasi tidak dijeda.
 
@@ -69,7 +69,7 @@ Environment PlatformIO `wokwi` mengaktifkan koneksi station ke `Wokwi-GUEST`; bu
 4. Captive portal biasanya membuka dashboard secara otomatis. Jika tidak, buka [http://192.168.4.1](http://192.168.4.1) secara manual—gunakan `http`, bukan `https`.
 5. Putar sensor fisik/potensiometer atau tekan selector. Dashboard diperbarui sekitar setiap 750 ms dan dapat digunakan dari layar komputer maupun ponsel.
 
-Dashboard berjalan sepenuhnya lokal pada ESP32. Tombol web hanya meminta mode; pemeriksaan pH/kekeruhan tetap menentukan apakah relay boleh aktif. OFF dari selector fisik juga tetap mendapat prioritas. Sebelum penggunaan di luar demo, ganti SSID/kata sandi pada `src/main.cpp`; antarmuka ini menggunakan HTTP lokal tanpa TLS dan bukan sistem keselamatan tersertifikasi.
+Dashboard berjalan sepenuhnya lokal pada ESP32. Dashboard hanya menampilkan current route; perubahan mode dilakukan melalui selector fisik atau tombol di Wokwi. Pemeriksaan pH/kekeruhan tetap menentukan apakah relay boleh aktif, dan OFF dari selector fisik tetap mendapat prioritas. Sebelum penggunaan di luar demo, ganti SSID/kata sandi pada `src/main.cpp`; antarmuka ini menggunakan HTTP lokal tanpa TLS dan bukan sistem keselamatan tersertifikasi.
 
 ## Pemantauan baterai 12 V VRLA
 

@@ -66,10 +66,10 @@ constexpr uint8_t RELAY_OFF = HIGH;
 constexpr float PH_MIN = 6.5f;
 constexpr float PH_MAX = 8.5f;
 
-// Team simulation criterion: <= 5 NTU; < 0.3 NTU is the preferred target.
+// Team simulation criterion: <= 3 NTU; < 1.0 NTU is the preferred target.
 // This classification alone does not establish actual drinking-water safety.
-constexpr float DRINK_MAX_NTU = 5.0f;
-constexpr float MCK_MAX_NTU = 10.0f;
+constexpr float DRINK_MAX_NTU = 1.0f;
+constexpr float MCK_MAX_NTU = 3.0f;
 
 // =========================================================
 // SIMULATION RANGES

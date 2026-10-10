@@ -9,7 +9,7 @@ const char DASHBOARD_HTML[] PROGMEM = R"HTML(
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#224cac">
-  <title>O.A.S.I.S. Local Control</title>
+  <title>O.A.S.I.S. Local Dashboard</title>
   <style>
     :root {
       color-scheme: dark;
@@ -48,7 +48,6 @@ const char DASHBOARD_HTML[] PROGMEM = R"HTML(
       background-size: 42px 42px;
       mask-image: linear-gradient(to bottom, #000, transparent 78%);
     }
-    button { font: inherit; }
     .shell { width: min(1180px, calc(100% - 40px)); margin: 0 auto; padding: 24px 0 34px; position: relative; }
     .topbar { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 28px; }
     .brand { display: flex; align-items: center; gap: 13px; letter-spacing: .16em; font-size: 13px; font-weight: 700; }
@@ -91,15 +90,9 @@ const char DASHBOARD_HTML[] PROGMEM = R"HTML(
     .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 20px 22px; border-bottom: 1px solid var(--line); }
     .section-title { margin: 0; font-size: 12px; letter-spacing: .16em; text-transform: uppercase; }
     .section-kicker { color: var(--muted); font-size: 10px; }
-    .modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 18px; }
-    .mode-button { min-height: 108px; padding: 16px 12px; border: 1px solid var(--line); border-radius: 0; color: var(--muted); background: rgba(2,16,15,.28); cursor: pointer; text-align: left; transition: border-color .2s ease, background .2s ease, transform .2s ease; }
-    .mode-button:hover { border-color: rgba(114,242,195,.5); transform: translateY(-2px); }
-    .mode-button:focus-visible { outline: 2px solid var(--aqua); outline-offset: 2px; }
-    .mode-button[aria-pressed="true"] { border-color: var(--aqua); background: rgba(114,242,195,.11); color: var(--ink); }
-    .mode-button[data-mode="OFF"][aria-pressed="true"] { border-color: var(--amber); background: rgba(255,189,102,.1); }
-    .mode-index { display: block; margin-bottom: 23px; color: var(--aqua); font-size: 10px; font-family: ui-monospace, monospace; }
-    .mode-button[data-mode="OFF"] .mode-index { color: var(--amber); }
-    .mode-name { display: block; font-size: 15px; font-weight: 750; letter-spacing: .06em; }
+    .current-route { margin: 18px; padding: 24px 20px; border-left: 5px solid var(--aqua); background: rgba(114,242,195,.11); }
+    .route-kind { display: block; margin-bottom: 12px; color: var(--muted); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; }
+    .route-name { display: block; font-size: 32px; font-weight: 750; letter-spacing: .06em; }
     .control-note { margin: 0; padding: 0 20px 20px; color: var(--muted); font-size: 11px; line-height: 1.55; }
 
     .outputs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--line); }
@@ -117,7 +110,6 @@ const char DASHBOARD_HTML[] PROGMEM = R"HTML(
     body[data-quality="DRINKABLE"] { --quality: var(--aqua); --quality-soft: rgba(114,242,195,.12); }
     body[data-quality="MCK ONLY"] { --quality: var(--amber); --quality-soft: rgba(255,189,102,.12); }
     body[data-quality="UNSAFE"] { --quality: var(--danger); --quality-soft: rgba(255,119,109,.13); }
-    .busy { pointer-events: none; opacity: .58; }
 
     @media (max-width: 850px) {
       .shell { width: min(100% - 28px, 720px); padding-top: 18px; }
@@ -141,10 +133,8 @@ const char DASHBOARD_HTML[] PROGMEM = R"HTML(
       .battery-sensor { min-height: 140px; gap: 12px; }
       .battery-sensor .sensor-value { margin-top: 14px; }
       .battery-voltage { font-size: 23px; }
-      .modes { gap: 5px; padding: 12px; }
-      .mode-button { min-height: 92px; padding: 12px 9px; }
-      .mode-index { margin-bottom: 18px; }
-      .mode-name { font-size: 12px; }
+      .current-route { margin: 12px; padding: 20px 16px; }
+      .route-name { font-size: 28px; }
       .outputs { grid-template-columns: 1fr 1fr; }
       .output { min-height: 130px; }
       .output-name { margin-top: 30px; }
@@ -256,15 +246,9 @@ const char DASHBOARD_HTML[] PROGMEM = R"HTML(
     .section-head { padding: 16px 20px; border-bottom: 0; background: #fdc70d; color: #17191f; }
     .section-title { color: #17191f; font-weight: 800; letter-spacing: .07em; }
     .section-kicker { color: #3a3e49; font-weight: 600; }
-    .modes { background: #fff; }
-    .mode-button { border-color: #cdd5e8; color: #525b74; background: #f8f9fd; font-weight: 600; }
-    .mode-button:hover { border-color: #224cac; background: #eef2fb; }
-    .mode-button:focus-visible { outline-color: #224cac; }
-    .mode-button[aria-pressed="true"] { border-color: #224cac; background: #224cac; color: #fff; box-shadow: inset 0 6px 0 #fdc70d; }
-    .mode-button[data-mode="OFF"][aria-pressed="true"] { border-color: #262e6e; background: #262e6e; color: #fff; box-shadow: inset 0 6px 0 #fdc70d; }
-    .mode-index { color: #224cac; font-family: "Montserrat", Arial, sans-serif; font-weight: 700; }
-    .mode-button[aria-pressed="true"] .mode-index,
-    .mode-button[data-mode="OFF"][aria-pressed="true"] .mode-index { color: #fdc70d; }
+    .current-route { border-left-color: #224cac; background: #eef2fb; color: #262e6e; }
+    .current-route[data-mode="OFF"] { border-left-color: #d49400; background: #fff8df; }
+    .route-kind { color: #646b80; font-weight: 700; }
     .control-note { color: #5e667b; }
 
     .outputs { gap: 6px; padding: 6px; background: #fff; }
@@ -321,7 +305,7 @@ const char DASHBOARD_HTML[] PROGMEM = R"HTML(
           <p class="summary" id="summary">Waiting for the first sensor reading. Unsafe readings or a mode mismatch keep every water outlet closed.</p>
           <div class="quality-line">
             <span class="quality-badge" id="quality">UNSAFE</span>
-            <span class="mode-readout">SELECTOR <strong id="modeReadout">OFF</strong></span>
+            <span class="mode-readout">CURRENT ROUTE <strong id="modeReadout">--</strong></span>
           </div>
         </div>
         <div class="sensor-stack" aria-label="Sensor readings">
@@ -335,7 +319,7 @@ const char DASHBOARD_HTML[] PROGMEM = R"HTML(
             <div class="sensor-label">Optical clarity</div>
             <div class="sensor-value"><span id="ntuValue">--</span><small>NTU</small></div>
             <div class="meter" aria-hidden="true"><span id="ntuMeter"></span></div>
-            <div class="sensor-note">Drink ≤5 · MCK &lt;10</div>
+            <div class="sensor-note">Drink ≤1.0 · MCK &lt;3.0</div>
           </article>
           <article class="sensor battery-sensor" aria-label="12 volt VRLA battery status">
             <div>
@@ -354,13 +338,12 @@ const char DASHBOARD_HTML[] PROGMEM = R"HTML(
 
       <div class="workspace">
         <section class="section" aria-labelledby="modeTitle">
-          <div class="section-head"><h2 class="section-title" id="modeTitle">Route selector</h2><span class="section-kicker">Sensor interlocked</span></div>
-          <div class="modes" id="modes">
-            <button class="mode-button" data-mode="MCK" type="button" aria-pressed="false"><span class="mode-index">01 / SANITATION</span><span class="mode-name">MCK</span></button>
-            <button class="mode-button" data-mode="OFF" type="button" aria-pressed="true"><span class="mode-index">02 / SAFE STOP</span><span class="mode-name">OFF</span></button>
-            <button class="mode-button" data-mode="DRINK" type="button" aria-pressed="false"><span class="mode-index">03 / RO LINE</span><span class="mode-name">DRINK</span></button>
+          <div class="section-head"><h2 class="section-title" id="modeTitle">Current route</h2><span class="section-kicker">Sensor interlocked</span></div>
+          <div class="current-route" id="currentRoute" role="status" aria-live="polite" aria-atomic="true">
+            <span class="route-kind" id="routeKind">Waiting for controller</span>
+            <strong class="route-name" id="routeName">--</strong>
           </div>
-          <p class="control-note">Changing mode requests a route; it never bypasses pH or turbidity limits. OFF immediately drops all four outputs.</p>
+          <p class="control-note">Shows the mode selected on the controller. Use the physical selector to change it. Water outputs still depend on pH and turbidity limits.</p>
         </section>
 
         <section class="section" aria-labelledby="outputTitle">
@@ -380,14 +363,13 @@ const char DASHBOARD_HTML[] PROGMEM = R"HTML(
 
   <script>
     const $ = (id) => document.getElementById(id);
-    const modeButtons = [...document.querySelectorAll('.mode-button')];
     const outputMap = [
       ['outHose', 'hosePump', 'ON', 'OFF'],
       ['outMck', 'mckValve', 'OPEN', 'CLOSED'],
       ['outRo', 'roPump', 'ON', 'OFF'],
       ['outDrink', 'drinkValve', 'OPEN', 'CLOSED']
     ];
-    let requestBusy = false;
+    const routeKinds = {MCK: 'Sanitation', OFF: 'Safe stop', DRINK: 'RO line'};
 
     function render(data) {
       document.body.dataset.quality = data.waterClass;
@@ -402,7 +384,9 @@ const char DASHBOARD_HTML[] PROGMEM = R"HTML(
       $('batteryPercent').textContent = Number.isFinite(batteryPercent) ? Math.round(batteryPercent) : '--';
       $('batteryVoltage').textContent = Number.isFinite(batteryVoltage) ? batteryVoltage.toFixed(2) : '--';
       $('batteryMeter').style.setProperty('--pct', Number.isFinite(batteryPercent) ? Math.max(0, Math.min(100, batteryPercent)) + '%' : '0%');
-      modeButtons.forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.mode === data.mode)));
+      $('currentRoute').dataset.mode = data.mode;
+      $('routeName').textContent = data.mode;
+      $('routeKind').textContent = routeKinds[data.mode] || 'Unknown route';
 
       const copy = data.waterClass === 'DRINKABLE'
         ? ['CLEAR FOR', 'DRINK ROUTE', 'Current pH and turbidity satisfy the simulation drinking-route limits. The DRINK output still requires DRINK mode.']
@@ -437,25 +421,6 @@ const char DASHBOARD_HTML[] PROGMEM = R"HTML(
       }
     }
 
-    async function selectMode(mode) {
-      if (requestBusy) return;
-      requestBusy = true;
-      $('modes').classList.add('busy');
-      try {
-        const response = await fetch('/api/mode', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-          body: 'mode=' + encodeURIComponent(mode)
-        });
-        if (!response.ok) throw new Error('mode ' + response.status);
-        render(await response.json());
-      } finally {
-        requestBusy = false;
-        $('modes').classList.remove('busy');
-      }
-    }
-
-    modeButtons.forEach((button) => button.addEventListener('click', () => selectMode(button.dataset.mode)));
     refresh();
     setInterval(refresh, 750);
   </script>

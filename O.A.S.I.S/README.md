@@ -55,9 +55,9 @@ The firmware runs a port-80 HTTP server and a wildcard DNS server alongside the 
 | --- | --- | --- |
 | `/` | GET | Responsive embedded dashboard |
 | `/api/status` | GET | Current mode, classification, water readings, `batteryVoltage` (V), `batteryPercent` (0–100), relay outputs, IPs, and uptime as JSON |
-| `/api/mode` | POST | Requests `MCK`, `OFF`, or `DRINK` using a form field named `mode` |
+| `/api/mode` | POST | Existing programmatic mode request endpoint; the dashboard does not call it |
 
-The browser polls status every 750 ms. A web mode request is applied to the same `currentMode` used by the physical controls, immediately clears previous outputs, re-reads the sensors, recalculates the interlock, updates the LCD, and returns the resulting state. It cannot command an individual relay or bypass quality classification. A subsequently pressed physical button can change the mode; a held OFF input has priority.
+The browser polls status every 750 ms and displays a read-only Current route indicator for MCK, OFF, or DRINK. Change the mode using the physical selector or Wokwi buttons. The dashboard sends no mode requests. The existing `/api/mode` endpoint remains available for programmatic clients; a request is applied to the same `currentMode` used by the physical controls, immediately clears previous outputs, re-reads the sensors, recalculates the interlock, updates the LCD, and returns the resulting state. It cannot command an individual relay or bypass quality classification. A subsequently pressed physical button can change the mode; a held OFF input has priority.
 
 All page assets are compiled into `src/dashboard.h`, so no internet connection, CDN, filesystem upload, or separate frontend build is required. The access point credentials are demonstration defaults and should be changed before field deployment.
 
@@ -129,13 +129,6 @@ sequenceDiagram
     User->>Buttons: Select MCK, OFF, or DRINK
     Buttons-->>ESP32: Active-low button input
     ESP32->>ESP32: Latch selected mode
-
-    opt User selects a mode in the browser
-        User->>Web: Tap MCK, OFF, or DRINK
-        Web->>ESP32: POST /api/mode
-        ESP32->>ESP32: Clear outputs and apply the same sensor interlock
-        ESP32-->>Web: Return current state as JSON
-    end
 
     loop Every 250 ms or on mode change
         ESP32->>Sensors: Read GPIO34, GPIO35, and GPIO32 ADC values
